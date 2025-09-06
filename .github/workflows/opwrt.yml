@@ -10,8 +10,8 @@ env:
   REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
-  DIY_P1_SH: DIY-1.sh
-  DIY_P2_SH: DIY-2.sh
+  DIY_P1_SH: diy-1.sh
+  DIY_P2_SH: diy-2.sh
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
