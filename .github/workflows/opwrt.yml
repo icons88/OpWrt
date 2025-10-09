@@ -1,8 +1,10 @@
 name:  OpenWrt-x86_64-k6.12
+
 on: 
   workflow_dispatch:
 #  schedule:
 #    - cron: 20 00 * * *
+
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
@@ -13,13 +15,16 @@ env:
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
+
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
     
     - name: 检查项目分支
       uses: actions/checkout@main
+
     - name: 清理磁盘空间
       uses: jlumbroso/free-disk-space@main
       with:
@@ -44,13 +49,7 @@ jobs:
         echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
         echo "--------------------------硬盘信息--------------------------"
         echo "硬盘数量: $(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
-    - name: 安装并启动 Docker 插件
-      run: |
-        sudo apt-get remove containerd containerd.io -y
-        sudo apt-get update
-        sudo apt-get install -y docker.io
-        sudo systemctl start docker
-        sudo systemctl enable docker
+
     - name: 安装编译环境
       env:
         DEBIAN_FRONTEND: noninteractive
@@ -64,22 +63,27 @@ jobs:
         sudo timedatectl set-timezone "$TZ"
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
+
     - name: 克隆固件源码
       working-directory: /workdir
       run: |
         df -hT $PWD
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
     - name: 添加外部插件
       run: |
         [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
         chmod +x $DIY_P1_SH
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P1_SH
+
     - name: 更新外部插件
       run: cd openwrt && ./scripts/feeds update -a
+
     - name: 读取外部插件
       run: cd openwrt && ./scripts/feeds install -a
+
     - name: 加载个人设置
       run: |
         [ -e files ] && mv files openwrt/files
@@ -87,6 +91,7 @@ jobs:
         chmod +x $DIY_P2_SH
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
+
     - name: 下载固件dL库
       id: package
       run: |
@@ -95,6 +100,7 @@ jobs:
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
+
     - name: 正在编译固件
       id: compile
       run: |
@@ -107,52 +113,48 @@ jobs:
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
         echo "FILE_TIME=$(date "+%Y年%m月%d日")" >> $GITHUB_ENV
         echo "TAG_TIME=$(date +"%Y.%m.%d-%H%M%S")" >> $GITHUB_ENV
+
     - name: 查看磁盘用量
       if: (!cancelled())
       run: df -hT
+
     - name: 打包整理固件
       id: organize
       if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
-        if [ -d openwrt/bin/targets ]; then
-          cd openwrt/bin/targets/*/*
-          rm -rf packages && mkdir packages
-          find -name "*esxi-flat.vmdk*" | xargs -i mv -f {} packages
-          find -name "*kernel.bin*" | xargs -i mv -f {} packages
-          find -name "*rootfs*" | xargs -i mv -f {} packages
-          find -name "*.manifest*" | xargs -i mv -f {} packages
-          find -name "*vmlinuz*" | xargs -i mv -f {} packages
-          find -name "*esxi.vmdk*" | xargs -i mv -f {} packages
-          find -name "*buildinfo*" | xargs -i mv -f {} packages
-          find -name "*json*" | xargs -i mv -f {} packages
-          find -name "*sha256sums*" | xargs -i mv -f {} packages
-          rm -rf packages
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-          echo "status=success" >> $GITHUB_OUTPUT
-        else
-          echo "固件输出路径不存在，编译可能失败"
-          exit 1
-        fi
+        cd openwrt/bin/targets/*/*
+        rm -rf packages && mkdir packages
+        find -name "*esxi-flat.vmdk*" | xargs -i mv -f {} packages
+        find -name "*kernel.bin*" | xargs -i mv -f {} packages
+        find -name "*rootfs*" | xargs -i mv -f {} packages
+        find -name "*.manifest*" | xargs -i mv -f {} packages
+        find -name "*vmlinuz*" | xargs -i mv -f {} packages
+        find -name "*esxi.vmdk*" | xargs -i mv -f {} packages
+        find -name "*buildinfo*" | xargs -i mv -f {} packages
+        find -name "*json*" | xargs -i mv -f {} packages
+        find -name "*sha256sums*" | xargs -i mv -f {} packages
+        rm -rf packages
+        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+        echo "status=success" >> $GITHUB_OUTPUT
+
     - name: 打包上传固件
       uses: actions/upload-artifact@main
       if: steps.organize.outputs.status == 'success' && !cancelled()
       with:
         name: OpenWrt-x86_64${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
+
     - name: 创建发布标签
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
         echo "release_tag=${{ env.TAG_TIME }}" >> $GITHUB_OUTPUT
-        if [ -z "${{ env.TAG_TIME }}" ]; then
-          echo "错误：TAG_TIME 变量为空"
-          exit 1
-        fi
         touch release.txt
         echo "OpenWrt-X86_64-6.12（支持ipv6）" >> release.txt
         echo "管理地址：192.168.2.1" >> release.txt
         echo "默认密码：无密码" >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
+
     - name: 发布新版固件
       uses: softprops/action-gh-release@v2
       if: steps.tag.outputs.status == 'success' && !cancelled()
@@ -163,11 +165,13 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: ${{ env.FIRMWARE }}/* 
+
     - name: 清理编译流程
       uses: Mattraks/delete-workflow-runs@main
       with:
         retain_days: 50
         keep_minimum_runs: 10
+
     - name: 删除旧版固件
       uses: dev-drprasad/delete-older-releases@master
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
