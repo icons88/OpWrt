@@ -1,4 +1,4 @@
-name:  OpenWrt-x86_64-k6.12
+name:  OpenWrt-x86_64-6.12-旧版luci
 
 on: 
   workflow_dispatch:
