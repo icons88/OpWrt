@@ -1,4 +1,4 @@
-name:  OpenWrt-x86_64-new_6.12
+name:  OpenWrt-x86_64-6.12-新版luci
 
 on: 
   workflow_dispatch:
@@ -8,8 +8,8 @@ on:
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
-  FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: new.config
+  FEEDS_CONF: conf.default
+  CONFIG_FILE: .config
   DIY_P1_SH: diy-1.sh
   DIY_P2_SH: diy-2.sh
   UPLOAD_FIRMWARE: true
